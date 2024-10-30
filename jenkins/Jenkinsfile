@@ -1,29 +1,42 @@
 pipeline {
-    agent {
-        docker {
-            image 'node:lts-buster-slim'
-            args '-p 3000:3000'
-        }
-    }
+    agent any
+
     environment {
         CI = 'true'
+	IMAGE_NAME = "vikiardian/react-app"
     }
     stages {
+	stage('Checkout SCM') {
+	    steps {
+		checkout scm
+	    }
+	}
         stage('Build') {
             steps {
-                sh 'npm install'
+                script {
+		    docker.build("${IMAGE_NAME}:${env.BUILD_ID}")
+		}
             }
         }
         stage('Test') {
             steps {
-                sh './jenkins/scripts/test.sh'
+                script {
+		    def app = docker.image("${IMAGE_NAME}:BUILD_ID")
+                    app.inside {
+                        sh 'npm install'
+                        sh 'npm test'
+                    }
+                    echo 'Test successful!'
+		}
             }
         }
-        stage('Deliver') {
+        stage('Push') {
             steps {
-                sh './jenkins/scripts/deliver.sh'
-                input message: 'Finished using the website? (Click "Proceed" to continue)'
-                sh './jenkins/scripts/kill.sh'
+                script {
+                    docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-credential') {
+                        docker.image("${IMAGE_NAME}:${env.BUILD_ID}").push()
+                    }
+                }
             }
         }
     }
