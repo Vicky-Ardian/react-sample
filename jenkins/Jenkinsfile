@@ -21,7 +21,7 @@ pipeline {
         stage('Test') {
             steps {
                 script {
-		    def app = docker.image("${IMAGE_NAME}:BUILD_ID")
+		    def app = docker.image("${IMAGE_NAME}:${BUILD_ID}")
                     app.inside {
                         sh 'npm install'
                         sh 'npm test'
