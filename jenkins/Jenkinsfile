@@ -3,49 +3,71 @@ pipeline {
 
     environment {
         CI = 'true'
-	IMAGE_NAME = "vikiardian/react-app"
+        IMAGE_NAME = "vikiardian/react-app"
     }
+
     stages {
-	stage('Checkout SCM') {
-	    steps {
-		checkout scm
-	    }
-	}
+        stage('Checkout SCM') {
+            steps {
+                checkout scm
+            }
+        }
+
         stage('Build') {
             steps {
                 script {
-		    docker.build("${IMAGE_NAME}:${env.BUILD_ID}")
-		}
+                    docker.build("${IMAGE_NAME}:${env.BUILD_NUMBER}")
+                }
             }
         }
+
         stage('Test') {
             steps {
                 script {
-		    def app = docker.image("${IMAGE_NAME}:${BUILD_ID}")
+                    def app = docker.image("${IMAGE_NAME}:${env.BUILD_NUMBER}")
                     app.inside {
                         sh 'npm install'
                         sh 'npm test'
                     }
                     echo 'Test successful!'
-		}
+                }
             }
         }
+
         stage('Push') {
             steps {
                 script {
+                    // Push Docker image ke registry Docker Hub
                     docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-credential') {
-                        docker.image("${IMAGE_NAME}:${env.BUILD_ID}").push()
+                        docker.image("${IMAGE_NAME}:${env.BUILD_NUMBER}").push()
                     }
                 }
             }
         }
-	stage('Trigger manifest') {
-	    steps {
-		script {
-		    echo "Start another job"
-		    build job: 'updatemanifest', parameters: [string(name: 'DOCKERTAG', value: env.BUILD_NUMBER)]
-		}
-	    }
-	}
+
+        stage('Trigger manifest update') {
+            steps {
+                script {
+                    echo "Triggering the 'updatemanifest' job..."
+                    build job: 'updatemanifest', parameters: [
+                        string(name: 'DOCKERTAG', value: env.BUILD_NUMBER)
+                    ]
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo "Pipeline finished"
+        }
+
+        success {
+            echo "Pipeline finished successfully"
+        }
+
+        failure {
+            echo "Pipeline failed"
+        }
     }
 }
