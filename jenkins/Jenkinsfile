@@ -49,10 +49,11 @@ pipeline {
         stage('Trigger manifest update') {
             steps {
                 script {
-                    echo "Triggering the 'updatemanifest' job..."
-                    build job: 'updatemanifest', parameters: [
-                        string(name: 'DOCKERTAG', value: env.BUILDTAG)
-                    ]
+                    build job: 'updatemanifest',
+                          propagate: false,
+                          parameters: [
+                            [$class: 'StringParameterValue', name: 'BUILDTAG', value: "${BUILDTAG}")
+                          ]
                 }
             }
         }
