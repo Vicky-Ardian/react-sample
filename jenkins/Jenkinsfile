@@ -1,52 +1,55 @@
-node {
-    // Declare environment variables
-    def IMAGE_NAME = "vikiardian/react-app"
-    def CI = 'true'
 
-    try {
-        // Checkout SCM
+pipeline {
+    agent any
+
+    environment {
+        CI = 'true'
+        IMAGE_NAME = "vikiardian/react-app"
+        DOCKER_TAG = "${BUILD_NUMBER}"
+    }
+    stages {
         stage('Checkout SCM') {
-            checkout scm
+            steps {
+                checkout scm
+            }
         }
-
-        // Build Docker Image
         stage('Build') {
-            script {
-                docker.build("${IMAGE_NAME}:${env.BUILD_ID}")
+            steps {
+                script {
+                    docker.build("${IMAGE_NAME}:${DOCKER_TAG}")
+                }
             }
         }
-
-        // Run Tests
         stage('Test') {
-            script {
-                def app = docker.image("${IMAGE_NAME}:${BUILD_ID}")
-                app.inside {
-                    sh 'npm install'
-                    sh 'npm test'
+            steps {
+                script {
+                    def app = docker.image("${IMAGE_NAME}:${DOCKER_TAG}")
+                    app.inside {
+                        sh 'npm install'
+                        sh 'npm test'
+                    }
+                    echo 'Test successful!'
                 }
-                echo 'Test successful!'
             }
         }
-
-        // Push Docker Image
         stage('Push') {
-            script {
-                docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-credential') {
-                    docker.image("${IMAGE_NAME}:${env.BUILD_ID}").push()
+            steps {
+                script {
+                    docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-credential') {
+                        docker.image("${IMAGE_NAME}:${env.DOCKER_TAG}").push()
+                    }
                 }
             }
         }
-
-        // Trigger Another Job (Manifest Update)
-        stage('Trigger manifest') {
-            script {
-                echo "Start another job"
-                build job: 'updatemanifest', parameters: [string(name: 'DOCKERTAG', value: env.BUILD_NUMBER)]
+        stage('Update Kubernetes Deployment Manifest') {
+            steps {
+                script {
+                    echo "Triggering job to update Kubernetes deployment manifest..."
+                    build job: updatemanifest, parameters: [
+                        string(name: 'DOCKER_IMAGE', value: "${IMAGE_NAME}:${DOCKER_TAG}")
+                    ]
+                }
             }
         }
-
-    } catch (Exception e) {
-        currentBuild.result = 'FAILURE'
-        throw e
     }
 }
