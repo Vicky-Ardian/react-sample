@@ -4,6 +4,7 @@ pipeline {
     environment {
         CI = 'true'
         IMAGE_NAME = "vikiardian/react-app"
+        BUILDTAG = "${env.BUILD_NUMBER}"
     }
 
     stages {
@@ -50,7 +51,7 @@ pipeline {
                 script {
                     echo "Triggering the 'updatemanifest' job..."
                     build job: 'updatemanifest', parameters: [
-                        string(name: 'DOCKERTAG', value: env.BUILD_NUMBER)
+                        string(name: 'DOCKERTAG', value: env.BUILDTAG)
                     ]
                 }
             }
